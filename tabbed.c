@@ -170,6 +170,8 @@ static char winid[64];
 static char **cmd;
 static char *wmname = "tabbed";
 static const char *geometry;
+static Colormap cmap;         // alpha.diff
+static Visual *visual = NULL; // alpha.diff
 
 char *argv0;
 
@@ -255,9 +257,9 @@ configurenotify(const XEvent *e)
 		ww = ev->width;
 		wh = ev->height;
 		XFreePixmap(dpy, dc.drawable);
-		dc.drawable = XCreatePixmap(dpy, root, ww, wh,
-		              DefaultDepth(dpy, screen));
-
+//  dc.drawable = XCreatePixmap(dpy, root, ww, wh,     // alpha.diff
+//                DefaultDepth(dpy, screen));          // alpha.diff
+    dc.drawable = XCreatePixmap(dpy, win, ww, wh, 32); // alpha.diff
 		if (!obh && (wh <= bh)) {
 			obh = bh;
 			bh = 0;
@@ -419,7 +421,8 @@ drawtext(const char *text, XftColor col[ColLast])
 			;
 	}
 
-	d = XftDrawCreate(dpy, dc.drawable, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen));
+//d = XftDrawCreate(dpy, dc.drawable, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen)); // alpha.diff
+  d = XftDrawCreate(dpy, dc.drawable, visual, cmap);                                             // alpha.diff
 	XftDrawStringUtf8(d, &col[ColFG], dc.font.xfont, x, y, (XftChar8 *) buf, len);
 	XftDrawDestroy(d);
 }
@@ -587,7 +590,8 @@ getcolor(const char *colstr)
 {
 	XftColor color;
 
-	if (!XftColorAllocName(dpy, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen), colstr, &color))
+//if (!XftColorAllocName(dpy, DefaultVisual(dpy, screen), DefaultColormap(dpy, screen), colstr, &color)) // alpha.diff
+  if (!XftColorAllocName(dpy, visual, cmap, colstr, &color))                                             // alpha.diff
 		die("%s: cannot allocate color '%s'\n", argv0, colstr);
 
 	return color;
@@ -1044,18 +1048,65 @@ setup(void)
 			wy = dh + wy - wh - 1;
 	}
 
+ 	XVisualInfo *vis;                                                                            // alpha.diff
+ 	XRenderPictFormat *fmt;                                                                      // alpha.diff
+ 	int nvi;                                                                                     // alpha.diff
+ 	int i;                                                                                       // alpha.diff
+                                                                                               // alpha.diff
+ 	XVisualInfo tpl = {                                                                          // alpha.diff
+ 		.screen = screen,                                                                          // alpha.diff
+ 		.depth = 32,                                                                               // alpha.diff
+ 		.class = TrueColor                                                                         // alpha.diff
+ 	};                                                                                           // alpha.diff
+                                                                                               // alpha.diff
+ 	vis = XGetVisualInfo(dpy, VisualScreenMask | VisualDepthMask | VisualClassMask, &tpl, &nvi); // alpha.diff
+ 	for(i = 0; i < nvi; i ++) {                                                                  // alpha.diff
+ 		fmt = XRenderFindVisualFormat(dpy, vis[i].visual);                                         // alpha.diff
+ 		if (fmt->type == PictTypeDirect && fmt->direct.alphaMask) {                                // alpha.diff
+ 			visual = vis[i].visual;                                                                  // alpha.diff
+ 			break;                                                                                   // alpha.diff
+ 		}                                                                                          // alpha.diff
+ 	}                                                                                            // alpha.diff
+                                                                                               // alpha.diff
+ 	XFree(vis);                                                                                  // alpha.diff
+                                                                                               // alpha.diff
+ 	if (! visual) {                                                                              // alpha.diff
+ 		fprintf(stderr, "Couldn't find ARGB visual.\n");                                           // alpha.diff
+ 		exit(1);                                                                                   // alpha.diff
+ 	}                                                                                            // alpha.diff
+                                                                                               // alpha.diff
+ 	cmap = XCreateColormap( dpy, root, visual, None);                                            // alpha.diff
 	dc.norm[ColBG] = getcolor(normbgcolor);
 	dc.norm[ColFG] = getcolor(normfgcolor);
 	dc.sel[ColBG] = getcolor(selbgcolor);
 	dc.sel[ColFG] = getcolor(selfgcolor);
 	dc.urg[ColBG] = getcolor(urgbgcolor);
 	dc.urg[ColFG] = getcolor(urgfgcolor);
-	dc.drawable = XCreatePixmap(dpy, root, ww, wh,
-	                            DefaultDepth(dpy, screen));
-	dc.gc = XCreateGC(dpy, root, 0, 0);
-
-	win = XCreateSimpleWindow(dpy, root, wx, wy, ww, wh, 0,
-	                          dc.norm[ColFG].pixel, dc.norm[ColBG].pixel);
+//dc.drawable = XCreatePixmap(dpy, root, ww, wh,                         // alpha.diff
+//                            DefaultDepth(dpy, screen));                // alpha.diff
+//dc.gc = XCreateGC(dpy, root, 0, 0);                                    // alpha.diff
+//                                                                       // alpha.diff
+//win = XCreateSimpleWindow(dpy, root, wx, wy, ww, wh, 0,                // alpha.diff
+//                          dc.norm[ColFG].pixel, dc.norm[ColBG].pixel); // alpha.diff
+  XSetWindowAttributes attrs;                                            // alpha.diff
+  attrs.background_pixel = dc.norm[ColBG].pixel;                         // alpha.diff
+  attrs.border_pixel = dc.norm[ColFG].pixel;                             // alpha.diff
+  attrs.bit_gravity = NorthWestGravity;                                  // alpha.diff
+  attrs.event_mask = FocusChangeMask | KeyPressMask                      // alpha.diff
+  	| ExposureMask | VisibilityChangeMask | StructureNotifyMask          // alpha.diff
+  	| ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;            // alpha.diff
+  attrs.background_pixmap = None ;                                       // alpha.diff
+  attrs.colormap = cmap;                                                 // alpha.diff
+                                                                         // alpha.diff
+  win = XCreateWindow(dpy, root, wx, wy,                                 // alpha.diff
+  ww, wh, 0, 32, InputOutput,                                            // alpha.diff
+  visual, CWBackPixmap | CWBorderPixel | CWBitGravity                    // alpha.diff
+  | CWEventMask | CWColormap, &attrs);                                   // alpha.diff
+                                                                         // alpha.diff
+  dc.drawable = XCreatePixmap(dpy, win, ww, wh,                          // alpha.diff
+                              32);                                       // alpha.diff
+  dc.gc = XCreateGC(dpy, dc.drawable, 0, 0);                             // alpha.diff
+                                                                         // alpha.diff
 	XMapRaised(dpy, win);
 	XSelectInput(dpy, win, SubstructureNotifyMask | FocusChangeMask |
 	             ButtonPressMask | ExposureMask | KeyPressMask |
