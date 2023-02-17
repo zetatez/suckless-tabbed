@@ -984,7 +984,8 @@ setup(void)
 	screen = DefaultScreen(dpy);
 	root = RootWindow(dpy, screen);
 	initfont(font);
-	bh = dc.h = dc.font.height + 2;
+//bh = dc.h = dc.font.height + 2; // patch: tabbed-bar-height
+ 	bh = dc.h = barHeight;          // patch: tabbed-bar-height
 
 	/* init atoms */
 	wmatom[WMDelete] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);

@@ -12,6 +12,7 @@ static const char before[]      = "<";
 static const char after[]       = ">";
 static const char titletrim[]   = "...";
 static const int  tabwidth      = 200;
+static const int  barHeight	    = 20; // patch: tabbed-bar-height
 static const Bool foreground    = True;
 static       Bool urgentswitch  = False;
 
