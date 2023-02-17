@@ -152,7 +152,8 @@ static void (*handler[LASTEvent]) (const XEvent *) = {
 	[MapRequest] = maprequest,
 	[PropertyNotify] = propertynotify,
 };
-static int bh, obh, wx, wy, ww, wh;
+//static int bh, obh, wx, wy, ww, wh;
+static int bh, obh, wx, wy, ww, wh, vbh;                  // tabbed-autohide-20201222-dabf6a2.diff
 static unsigned int numlockmask;
 static Bool running = True, nextfocus, doinitspawn = True,
             fillagain = False, closelastclient = False,
@@ -324,7 +325,8 @@ void
 drawbar(void)
 {
 	XftColor *col;
-	int c, cc, fc, width;
+//int c, cc, fc, width;                                            // tabbed-autohide-20201222-dabf6a2.diff
+ 	int c, cc, fc, width, nbh, i;                                    // tabbed-autohide-20201222-dabf6a2.diff
 	char *name = NULL;
 
 	if (nclients == 0) {
@@ -332,11 +334,21 @@ drawbar(void)
 		dc.w = ww;
 		XFetchName(dpy, win, &name);
 		drawtext(name ? name : "", dc.norm);
-		XCopyArea(dpy, dc.drawable, win, dc.gc, 0, 0, ww, bh, 0, 0);
+//	XCopyArea(dpy, dc.drawable, win, dc.gc, 0, 0, ww, bh, 0, 0);   // tabbed-autohide-20201222-dabf6a2.diff
+ 		XCopyArea(dpy, dc.drawable, win, dc.gc, 0, 0, ww, vbh, 0, 0);  // tabbed-autohide-20201222-dabf6a2.diff
 		XSync(dpy, False);
 
 		return;
 	}
+
+ 	nbh = nclients > 1 ? vbh : 0;                                    // tabbed-autohide-20201222-dabf6a2.diff
+ 	if (bh != nbh) {                                                 // tabbed-autohide-20201222-dabf6a2.diff
+ 		bh = nbh;                                                      // tabbed-autohide-20201222-dabf6a2.diff
+ 		for (i = 0; i < nclients; i++)                                 // tabbed-autohide-20201222-dabf6a2.diff
+ 			XMoveResizeWindow(dpy, clients[i]->win, 0, bh, ww, wh - bh); // tabbed-autohide-20201222-dabf6a2.diff
+ 		}                                                              // tabbed-autohide-20201222-dabf6a2.diff
+ 	if (bh == 0)                                                     // tabbed-autohide-20201222-dabf6a2.diff
+ 		return;                                                        // tabbed-autohide-20201222-dabf6a2.diff
 
 	width = ww;
 	cc = ww / tabwidth;
@@ -986,6 +998,7 @@ setup(void)
 	initfont(font);
 //bh = dc.h = dc.font.height + 2; // patch: tabbed-bar-height
  	bh = dc.h = barHeight;          // patch: tabbed-bar-height
+	vbh = bh;                       // patch: tabbed-autohide-20201222-dabf6a2.diff
 
 	/* init atoms */
 	wmatom[WMDelete] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
